@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   },
   description: APP_TAGLINE,
   metadataBase: new URL(PORTAL_URL),
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png" }],
+  },
   openGraph: {
     title: APP_NAME,
     description: APP_TAGLINE,
