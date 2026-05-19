@@ -72,7 +72,7 @@ export async function middleware(request: NextRequest) {
     .from("agent_profiles")
     .select("account_status, role, preferences")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   const status = profile?.account_status ?? "pending_verification";
   const prefs = (profile?.preferences || {}) as AgentPreferences;

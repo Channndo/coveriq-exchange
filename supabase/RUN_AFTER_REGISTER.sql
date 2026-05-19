@@ -1,5 +1,6 @@
 -- =============================================================================
--- Only works AFTER agent_profiles rows exist. If 0 rows, run FIX_PENDING_NOW.sql first.
+-- Activate existing profiles (shows rows in results — not "0 rows" confusion)
+-- If this returns 0 rows here, profiles don't exist yet → run FIX_PENDING_NOW.sql
 -- =============================================================================
 
 update public.agent_profiles
@@ -11,4 +12,8 @@ set
 where lower(email) in (
   lower('chandler@cover-iq.com'),
   lower('chandler.hill.24@gmail.com')
-);
+)
+returning email, account_status, role;
+
+-- You should see 2 rows: active / admin
+-- "Success. No rows returned" WITHOUT returning = normal for plain UPDATE in Supabase UI

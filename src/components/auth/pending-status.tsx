@@ -15,6 +15,7 @@ export function PendingStatus() {
   const [status, setStatus] = useState<AccountStatus>("pending_verification");
   const [loading, setLoading] = useState(true);
   const [missingProfile, setMissingProfile] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -55,6 +56,8 @@ export function PendingStatus() {
         router.replace(prefs?.onboardingCompleted ? "/dashboard" : "/onboarding");
         return;
       }
+
+      setAuthEmail(user.email ?? "");
       setLoading(false);
     }
 
@@ -142,6 +145,18 @@ export function PendingStatus() {
         <p className="mt-2 text-sm text-slate-500">
           Most applications are reviewed within 48 hours. This page refreshes automatically when
           you&apos;re approved.
+        </p>
+        {authEmail && (
+          <p className="mt-2 text-xs text-slate-500">
+            Signed in as <span className="text-slate-300">{authEmail}</span> — must match an
+            activated email in Supabase.
+          </p>
+        )}
+        <p className="mt-3 text-sm text-slate-500">
+          Already active in SQL?{" "}
+          <Link href="/dashboard" className="text-accent-cyan hover:text-accent-bright">
+            Go to dashboard
+          </Link>
         </p>
         <p className="mt-2 text-sm text-slate-500">
           Questions?{" "}
