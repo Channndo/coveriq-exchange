@@ -14,6 +14,7 @@ export function PendingStatus() {
   const router = useRouter();
   const [status, setStatus] = useState<AccountStatus>("pending_verification");
   const [loading, setLoading] = useState(true);
+  const [missingProfile, setMissingProfile] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -26,13 +27,27 @@ export function PendingStatus() {
         router.replace("/login");
         return;
       }
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("agent_profiles")
         .select("account_status, preferences")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      const accountStatus = (profile?.account_status as AccountStatus) ?? "pending_verification";
+      if (!profile && profileError?.code !== "PGRST116") {
+        setStatus("pending_verification");
+        setLoading(false);
+        return;
+      }
+
+      if (!profile) {
+        setStatus("pending_verification");
+        setMissingProfile(true);
+        setLoading(false);
+        return;
+      }
+
+      setMissingProfile(false);
+      const accountStatus = (profile.account_status as AccountStatus) ?? "pending_verification";
       setStatus(accountStatus);
 
       if (accountStatus === "active") {
@@ -58,6 +73,35 @@ export function PendingStatus() {
     return (
       <AuthShell title="Checking application status">
         <p className="mt-4 text-center text-slate-400">One moment…</p>
+      </AuthShell>
+    );
+  }
+
+  if (missingProfile) {
+    return (
+      <AuthShell title="Complete your producer profile">
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-6 text-center">
+          <p className="text-slate-300">
+            You&apos;re signed in, but your producer profile wasn&apos;t saved during registration
+            (often a missing server config). An admin must run{" "}
+            <strong className="text-white">BLOCK C</strong> in{" "}
+            <code className="text-cyan-300">ACTIVATE_MY_ACCOUNT.sql</code> in Supabase, or register
+            again after <code className="text-cyan-300">SUPABASE_SERVICE_ROLE_KEY</code> is set on
+            Vercel.
+          </p>
+          <p className="mt-3 text-sm text-slate-500">
+            SQL that only updates <code className="text-slate-400">agent_profiles</code> by email
+            will show <strong>0 rows</strong> until a profile row exists.
+          </p>
+          <div className="mt-6 flex flex-col gap-2">
+            <Button variant="secondary" onClick={() => router.refresh()}>
+              Check again
+            </Button>
+            <Button variant="ghost" onClick={() => void signOut()}>
+              Sign out
+            </Button>
+          </div>
+        </div>
       </AuthShell>
     );
   }
