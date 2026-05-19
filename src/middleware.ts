@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { AgentPreferences } from "@/types";
 
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/onboarding"];
@@ -22,12 +23,13 @@ const ADMIN_PREFIX = "/admin";
 function postAuthPath(
   isActive: boolean,
   isRejected: boolean,
-  onboardingDone: boolean
+  onboardingDone: boolean,
+  isAdmin: boolean
 ): string {
   if (isRejected) return PENDING_ROUTE;
   if (!isActive) return PENDING_ROUTE;
   if (!onboardingDone) return ONBOARDING_ROUTE;
-  return "/dashboard";
+  return isAdmin ? "/admin" : "/dashboard";
 }
 
 export async function middleware(request: NextRequest) {
@@ -68,11 +70,28 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  const { data: profile } = await supabase
-    .from("agent_profiles")
-    .select("account_status, role, preferences")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  let profile: {
+    account_status: string;
+    role: string;
+    preferences: AgentPreferences | null;
+  } | null = null;
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("agent_profiles")
+      .select("account_status, role, preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    profile = data;
+  } catch {
+    const { data } = await supabase
+      .from("agent_profiles")
+      .select("account_status, role, preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    profile = data;
+  }
 
   const status = profile?.account_status ?? "pending_verification";
   const prefs = (profile?.preferences || {}) as AgentPreferences;
@@ -82,7 +101,7 @@ export async function middleware(request: NextRequest) {
   const isPending = status === "pending_verification";
   const isAdmin = profile?.role === "admin";
 
-  const destination = postAuthPath(isActive, isRejected, onboardingDone);
+  const destination = postAuthPath(isActive, isRejected, onboardingDone, isAdmin);
 
   if (pathname.startsWith(ONBOARDING_ROUTE)) {
     if (!isActive) {
@@ -117,15 +136,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (pathname === PENDING_ROUTE && isActive && onboardingDone) {
+  if (pathname === PENDING_ROUTE && isActive) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname === PENDING_ROUTE && isActive && !onboardingDone) {
-    const url = request.nextUrl.clone();
-    url.pathname = ONBOARDING_ROUTE;
+    url.pathname = onboardingDone ? "/dashboard" : ONBOARDING_ROUTE;
     return NextResponse.redirect(url);
   }
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Clock, XCircle } from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
+import { fetchMyProfile } from "@/lib/auth/fetchMyProfile";
 import { createClient } from "@/lib/supabase/client";
 import { SUPPORT_EMAIL } from "@/lib/constants";
 import type { AccountStatus } from "@/types";
@@ -28,36 +29,27 @@ export function PendingStatus() {
         router.replace("/login");
         return;
       }
-      const { data: profile, error: profileError } = await supabase
-        .from("agent_profiles")
-        .select("account_status, preferences")
-        .eq("user_id", user.id)
-        .maybeSingle();
 
-      if (!profile && profileError?.code !== "PGRST116") {
-        setStatus("pending_verification");
-        setLoading(false);
-        return;
-      }
+      const me = await fetchMyProfile();
 
-      if (!profile) {
+      if (me.missingProfile) {
         setStatus("pending_verification");
         setMissingProfile(true);
+        setAuthEmail(me.email ?? user.email ?? "");
         setLoading(false);
         return;
       }
 
       setMissingProfile(false);
-      const accountStatus = (profile.account_status as AccountStatus) ?? "pending_verification";
+      const accountStatus = me.accountStatus ?? "pending_verification";
       setStatus(accountStatus);
 
       if (accountStatus === "active") {
-        const prefs = profile?.preferences as { onboardingCompleted?: boolean } | null;
-        router.replace(prefs?.onboardingCompleted ? "/dashboard" : "/onboarding");
+        router.replace(me.onboardingCompleted ? "/dashboard" : "/onboarding");
         return;
       }
 
-      setAuthEmail(user.email ?? "");
+      setAuthEmail(me.email ?? user.email ?? "");
       setLoading(false);
     }
 

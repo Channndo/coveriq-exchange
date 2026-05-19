@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/auth/password-input";
+import { fetchMyProfile } from "@/lib/auth/fetchMyProfile";
 import { createClient } from "@/lib/supabase/client";
 import { legacyApi } from "@/lib/api/legacy-client";
 import { isSupabaseConfigured } from "@/lib/utils";
@@ -60,24 +61,26 @@ export function LoginForm() {
       }
 
       if (data.user) {
-        const { data: profile } = await supabase
-          .from("agent_profiles")
-          .select("account_status, preferences")
-          .eq("user_id", data.user.id)
-          .single();
+        const me = await fetchMyProfile();
 
         if (
-          profile?.account_status === "pending_verification" ||
-          profile?.account_status === "rejected"
+          me.accountStatus === "pending_verification" ||
+          me.accountStatus === "rejected" ||
+          me.missingProfile
         ) {
           router.push("/pending");
           router.refresh();
           return;
         }
 
-        const prefs = profile?.preferences as { onboardingCompleted?: boolean } | null;
-        if (!prefs?.onboardingCompleted) {
+        if (me.accountStatus === "active" && !me.onboardingCompleted) {
           router.push("/onboarding");
+          router.refresh();
+          return;
+        }
+
+        if (me.role === "admin" && redirect.startsWith("/dashboard")) {
+          router.push("/admin");
           router.refresh();
           return;
         }
