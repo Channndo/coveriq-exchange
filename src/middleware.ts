@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import type { AgentPreferences } from "@/types";
 
-const AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
+const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/onboarding"];
 const PUBLIC_ROUTES = ["/", "/apply"];
+const ONBOARDING_ROUTE = "/onboarding";
 const PENDING_ROUTE = "/pending";
 
 const PROTECTED_PREFIXES = [
@@ -16,6 +18,17 @@ const PROTECTED_PREFIXES = [
 ];
 
 const ADMIN_PREFIX = "/admin";
+
+function postAuthPath(
+  isActive: boolean,
+  isRejected: boolean,
+  onboardingDone: boolean
+): string {
+  if (isRejected) return PENDING_ROUTE;
+  if (!isActive) return PENDING_ROUTE;
+  if (!onboardingDone) return ONBOARDING_ROUTE;
+  return "/dashboard";
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -34,7 +47,7 @@ export async function middleware(request: NextRequest) {
 
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
-  if (isPublic && !isAuthRoute) {
+  if (isPublic && !isAuthRoute && pathname !== PENDING_ROUTE) {
     return NextResponse.next();
   }
 
@@ -43,7 +56,9 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     if (
       PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) ||
-      pathname.startsWith(ADMIN_PREFIX)
+      pathname.startsWith(ADMIN_PREFIX) ||
+      pathname.startsWith(ONBOARDING_ROUTE) ||
+      pathname === PENDING_ROUTE
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
@@ -55,39 +70,71 @@ export async function middleware(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from("agent_profiles")
-    .select("account_status, role")
+    .select("account_status, role, preferences")
     .eq("user_id", user.id)
     .single();
 
   const status = profile?.account_status ?? "pending_verification";
+  const prefs = (profile?.preferences || {}) as AgentPreferences;
+  const onboardingDone = prefs.onboardingCompleted === true;
   const isActive = status === "active";
+  const isRejected = status === "rejected";
+  const isPending = status === "pending_verification";
   const isAdmin = profile?.role === "admin";
 
-  if (isAuthRoute && isActive) {
+  const destination = postAuthPath(isActive, isRejected, onboardingDone);
+
+  if (pathname.startsWith(ONBOARDING_ROUTE)) {
+    if (!isActive) {
+      const url = request.nextUrl.clone();
+      url.pathname = PENDING_ROUTE;
+      return NextResponse.redirect(url);
+    }
+    if (onboardingDone) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = destination;
     return NextResponse.redirect(url);
   }
 
-  if (
-    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) &&
-    !isActive
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = PENDING_ROUTE;
-    return NextResponse.redirect(url);
+  if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
+    if (!isActive || !onboardingDone) {
+      const url = request.nextUrl.clone();
+      url.pathname = destination;
+      return NextResponse.redirect(url);
+    }
   }
 
   if (pathname.startsWith(ADMIN_PREFIX) && !isAdmin) {
     const url = request.nextUrl.clone();
+    url.pathname = isActive ? "/dashboard" : PENDING_ROUTE;
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname === PENDING_ROUTE && isActive && onboardingDone) {
+    const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  if (pathname === PENDING_ROUTE && isActive) {
+  if (pathname === PENDING_ROUTE && isActive && !onboardingDone) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = ONBOARDING_ROUTE;
     return NextResponse.redirect(url);
+  }
+
+  if (pathname === PENDING_ROUTE && isPending) {
+    return supabaseResponse;
+  }
+
+  if (pathname === PENDING_ROUTE && isRejected) {
+    return supabaseResponse;
   }
 
   return supabaseResponse;

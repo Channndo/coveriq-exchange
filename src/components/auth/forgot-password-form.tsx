@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { getAuthCallbackUrl } from "@/lib/auth/redirect";
 import { isSupabaseConfigured } from "@/lib/utils";
 
 export function ForgotPasswordForm() {
@@ -25,10 +26,9 @@ export function ForgotPasswordForm() {
       }
 
       const supabase = createClient();
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email,
-        { redirectTo: `${window.location.origin}/login` }
-      );
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getAuthCallbackUrl("/reset-password"),
+      });
 
       if (resetError) {
         setError(resetError.message);

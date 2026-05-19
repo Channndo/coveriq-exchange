@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CyberBackground } from "@/components/effects/cyber-background";
+import { SyntrixGuard } from "@/components/layout/SyntrixGuard";
 import { APP_NAME, APP_TAGLINE, PORTAL_URL } from "@/lib/constants";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className="relative min-h-screen">
         <CyberBackground />
         <div className="relative z-10">{children}</div>
+        <SyntrixGuard />
       </body>
     </html>
   );

@@ -1,15 +1,25 @@
 import type { AgentProfile, AgentPreferences } from "@/types";
 
 export const defaultPreferences = (): AgentPreferences => ({
+  onboardingCompleted: false,
+  wantWalkthrough: false,
   coverageTypes: [],
+  productLines: [],
   states: [],
   zipCodes: [],
+  leadTypes: [],
+  homeownerStatus: [],
+  creditTiers: [],
+  vehicleCounts: [],
+  demographics: [],
+  devices: [],
+  budgetTier: "",
   maxLeadPrice: 0,
   dailyBudget: 0,
   maxLeadsPerDay: 0,
   workingHoursStart: "09:00",
   workingHoursEnd: "17:00",
-  emailNotifications: false,
+  emailNotifications: true,
   smsNotifications: false,
 });
 

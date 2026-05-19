@@ -4,6 +4,10 @@ export const SUPPORT_EMAIL = "support@cover-iq.com";
 export const MAIN_SITE_URL = "https://cover-iq.com";
 export const PORTAL_URL = "https://agents.cover-iq.com";
 
+export const AGENT_ACCOUNTS_WEB_APP_URL =
+  (process.env.NEXT_PUBLIC_AGENT_ACCOUNTS_WEB_APP_URL ?? "").replace(/\/$/, "") ||
+  "https://script.google.com/macros/s/AKfycbzucxSuI3S04zq60X6MgiM2mR9vwWyEmt0qqjWJFxxX2f9mihew5IuQntYONfsrqH6e/exec";
+
 export const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
   "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",

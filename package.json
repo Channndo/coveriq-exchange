@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:sql": "echo 'Paste supabase/RUN_IN_SQL_EDITOR.sql into Supabase SQL Editor (not the terminal)'",
+    "db:link": "supabase link --project-ref gchpujvsqnuzhytxvyoz",
+    "db:push": "supabase db execute -f supabase/RUN_IN_SQL_EDITOR.sql"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

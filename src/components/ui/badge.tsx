@@ -9,6 +9,7 @@ const variants: Record<string, string> = {
   pending_verification: "bg-amber-500/20 text-amber-300 border-amber-500/30",
   active: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
   suspended: "bg-red-500/20 text-red-300 border-red-500/30",
+  rejected: "bg-red-500/20 text-red-300 border-red-500/30",
 };
 
 export function Badge({

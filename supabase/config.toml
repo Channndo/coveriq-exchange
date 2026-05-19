@@ -1,0 +1,8 @@
+# Cover-IQ-SUPA — https://supabase.com/dashboard/project/gchpujvsqnuzhytxvyoz
+project_id = "gchpujvsqnuzhytxvyoz"
+
+[api]
+enabled = true
+
+[db]
+major_version = 15

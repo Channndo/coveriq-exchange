@@ -30,9 +30,19 @@ export interface AgentProfile {
 }
 
 export interface AgentPreferences {
+  onboardingCompleted?: boolean;
+  wantWalkthrough?: boolean;
   coverageTypes: string[];
+  productLines: string[];
   states: string[];
   zipCodes: string[];
+  leadTypes: string[];
+  homeownerStatus: string[];
+  creditTiers: string[];
+  vehicleCounts: string[];
+  demographics: string[];
+  devices: string[];
+  budgetTier: string;
   maxLeadPrice: number;
   dailyBudget: number;
   maxLeadsPerDay: number;
@@ -40,6 +50,8 @@ export interface AgentPreferences {
   workingHoursEnd: string;
   emailNotifications: boolean;
   smsNotifications: boolean;
+  carrier?: string;
+  producerType?: "producer" | "agent";
 }
 
 export interface Lead {

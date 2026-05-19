@@ -62,12 +62,22 @@ export function LoginForm() {
       if (data.user) {
         const { data: profile } = await supabase
           .from("agent_profiles")
-          .select("account_status")
+          .select("account_status, preferences")
           .eq("user_id", data.user.id)
           .single();
 
-        if (profile?.account_status === "pending_verification") {
+        if (
+          profile?.account_status === "pending_verification" ||
+          profile?.account_status === "rejected"
+        ) {
           router.push("/pending");
+          router.refresh();
+          return;
+        }
+
+        const prefs = profile?.preferences as { onboardingCompleted?: boolean } | null;
+        if (!prefs?.onboardingCompleted) {
+          router.push("/onboarding");
           router.refresh();
           return;
         }
