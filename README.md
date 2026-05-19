@@ -10,7 +10,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3002](http://localhost:3002) (`npm run dev` uses port 3002).
 
 Without Supabase configured, middleware allows open access and the app uses `MOCK_LEADS` from `src/lib/data/mock-leads.ts` for the leads dashboard.
 
