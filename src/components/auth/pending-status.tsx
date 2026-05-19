@@ -45,7 +45,11 @@ export function PendingStatus() {
       setStatus(accountStatus);
 
       if (accountStatus === "active") {
-        router.replace(me.onboardingCompleted ? "/dashboard" : "/onboarding");
+        if (!me.onboardingCompleted) {
+          router.replace("/onboarding");
+          return;
+        }
+        router.replace(me.role === "admin" ? "/admin" : "/dashboard");
         return;
       }
 

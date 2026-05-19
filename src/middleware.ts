@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ensureOwnerProfile } from "@/lib/auth/ownerBootstrap";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AgentPreferences } from "@/types";
@@ -78,6 +79,7 @@ export async function middleware(request: NextRequest) {
 
   try {
     const admin = createAdminClient();
+    await ensureOwnerProfile(admin, user);
     const { data } = await admin
       .from("agent_profiles")
       .select("account_status, role, preferences")
@@ -138,7 +140,11 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === PENDING_ROUTE && isActive) {
     const url = request.nextUrl.clone();
-    url.pathname = onboardingDone ? "/dashboard" : ONBOARDING_ROUTE;
+    if (!onboardingDone) {
+      url.pathname = ONBOARDING_ROUTE;
+    } else {
+      url.pathname = isAdmin ? "/admin" : "/dashboard";
+    }
     return NextResponse.redirect(url);
   }
 

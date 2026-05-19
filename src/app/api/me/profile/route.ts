@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ensureOwnerProfile } from "@/lib/auth/ownerBootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Returns the signed-in user's agent profile (bypasses RLS). */
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
     }
 
     const admin = createAdminClient();
+    await ensureOwnerProfile(admin, user);
+
     const { data: profile, error: profileError } = await admin
       .from("agent_profiles")
       .select("account_status, role, preferences, email")
