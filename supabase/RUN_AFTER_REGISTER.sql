@@ -9,6 +9,10 @@ set
   account_status = 'active',
   verification_method = 'manual',
   approved_at = now()
-where email in ('chandler@cover-iq.com', 'chandler.hill.24@gmail.com');
+where email in (
+  'chandler@cover-iq.com',
+  'chandler.hill.24@gmail.com',
+  'chandlerdhill96@gmail.com'
+);
 
 -- Should say "1 row" or similar — if "0 rows", register on the site first, then run again.
