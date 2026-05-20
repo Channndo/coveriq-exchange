@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ensureOwnerProfile } from "@/lib/auth/ownerBootstrap";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { handleApiRoute } from "@/lib/security/apiMiddleware";
 import type { AgentPreferences } from "@/types";
 
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/onboarding"];
@@ -36,6 +37,10 @@ function postAuthPath(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith("/api/")) {
+    return handleApiRoute(request);
+  }
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -45,7 +50,6 @@ export async function middleware(request: NextRequest) {
 
   const isPublic =
     PUBLIC_ROUTES.includes(pathname) ||
-    pathname.startsWith("/api/") ||
     pathname.startsWith("/_next");
 
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
