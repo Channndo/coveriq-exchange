@@ -3,7 +3,16 @@ import { ensureOwnerProfile } from "@/lib/auth/ownerBootstrap";
 import { updateSession } from "@/lib/supabase/middleware";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiRoute } from "@/lib/security/apiMiddleware";
+import {
+  enforceSiteRateLimit,
+  finalizePublicResponse,
+  publicNext,
+} from "@/lib/security/siteGuards";
 import type { AgentPreferences } from "@/types";
+
+function finish(request: NextRequest, response: NextResponse): NextResponse {
+  return finalizePublicResponse(request, response);
+}
 
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/onboarding"];
 const PUBLIC_ROUTES = ["/", "/apply"];
@@ -37,6 +46,9 @@ function postAuthPath(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const rateLimited = enforceSiteRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   if (pathname.startsWith("/api/")) {
     return handleApiRoute(request);
   }
@@ -45,7 +57,7 @@ export async function middleware(request: NextRequest) {
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
-    return NextResponse.next();
+    return publicNext(request);
   }
 
   const isPublic =
@@ -55,7 +67,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
   if (isPublic && !isAuthRoute && pathname !== PENDING_ROUTE) {
-    return NextResponse.next();
+    return publicNext(request);
   }
 
   const { user, supabase, supabaseResponse } = await updateSession(request);
@@ -70,9 +82,9 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(url);
+      return finish(request, NextResponse.redirect(url));
     }
-    return supabaseResponse;
+    return finish(request, supabaseResponse);
   }
 
   let profile: {
@@ -113,33 +125,33 @@ export async function middleware(request: NextRequest) {
     if (!isActive) {
       const url = request.nextUrl.clone();
       url.pathname = PENDING_ROUTE;
-      return NextResponse.redirect(url);
+      return finish(request, NextResponse.redirect(url));
     }
     if (onboardingDone) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return finish(request, NextResponse.redirect(url));
     }
   }
 
   if (isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = destination;
-    return NextResponse.redirect(url);
+    return finish(request, NextResponse.redirect(url));
   }
 
   if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!isActive || !onboardingDone) {
       const url = request.nextUrl.clone();
       url.pathname = destination;
-      return NextResponse.redirect(url);
+      return finish(request, NextResponse.redirect(url));
     }
   }
 
   if (pathname.startsWith(ADMIN_PREFIX) && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = isActive ? "/dashboard" : PENDING_ROUTE;
-    return NextResponse.redirect(url);
+    return finish(request, NextResponse.redirect(url));
   }
 
   if (pathname === PENDING_ROUTE && isActive) {
@@ -149,18 +161,18 @@ export async function middleware(request: NextRequest) {
     } else {
       url.pathname = isAdmin ? "/admin" : "/dashboard";
     }
-    return NextResponse.redirect(url);
+    return finish(request, NextResponse.redirect(url));
   }
 
   if (pathname === PENDING_ROUTE && isPending) {
-    return supabaseResponse;
+    return finish(request, supabaseResponse);
   }
 
   if (pathname === PENDING_ROUTE && isRejected) {
-    return supabaseResponse;
+    return finish(request, supabaseResponse);
   }
 
-  return supabaseResponse;
+  return finish(request, supabaseResponse);
 }
 
 export const config = {
