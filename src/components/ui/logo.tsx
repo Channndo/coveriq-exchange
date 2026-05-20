@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { CoverIqLogoSvg } from "@/components/ui/cover-iq-logo-svg";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -9,9 +9,9 @@ interface LogoProps {
 }
 
 const sizes = {
-  sm: { text: "text-lg", mark: 28 },
-  md: { text: "text-xl", mark: 32 },
-  lg: { text: "text-2xl", mark: 40 },
+  sm: { text: "text-lg", mark: "h-7 w-7" },
+  md: { text: "text-xl", mark: "h-8 w-8" },
+  lg: { text: "text-2xl", mark: "h-10 w-10" },
 };
 
 export function Logo({ className, href = "/", size = "md" }: LogoProps) {
@@ -19,14 +19,7 @@ export function Logo({ className, href = "/", size = "md" }: LogoProps) {
 
   const content = (
     <span className={cn("inline-flex items-center gap-2 font-bold tracking-tight", className)}>
-      <Image
-        src="/coveriq-logo.svg"
-        alt=""
-        width={mark}
-        height={mark}
-        className="shrink-0"
-        aria-hidden
-      />
+      <CoverIqLogoSvg className={cn("shrink-0", mark)} />
       <span className={text}>
         <span className="text-gradient">CoverIQ</span>
         <span className="text-slate-300"> Exchange</span>
