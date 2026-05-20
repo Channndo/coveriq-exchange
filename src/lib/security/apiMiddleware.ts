@@ -1,25 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { applyCorsHeaders, resolveCorsOrigin } from "./cors";
-import { checkRateLimit, clientIp, rateLimitHeaders } from "./rateLimit";
+import {
+  applyRateLimitHeaders,
+  clientIp,
+  enforceRateLimit,
+  rateLimitBlockedHeaders,
+} from "./rateLimit";
+import { SITE_BURST_LIMIT, SITE_BURST_WINDOW_SEC } from "./siteGuards";
 
 const WEBHOOK_PATH = "/api/stripe/webhook";
 
-function rateLimitForPath(pathname: string): { limit: number; windowMs: number } {
+function rateLimitForPath(pathname: string): { limit: number; windowSec: number } {
   if (pathname.startsWith(WEBHOOK_PATH)) {
-    return { limit: 200, windowMs: 60_000 };
+    return { limit: 200, windowSec: 60 };
   }
   if (
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/api/agent-profile") ||
     pathname.startsWith("/api/me/")
   ) {
-    return { limit: 20, windowMs: 60_000 };
+    return { limit: 20, windowSec: 60 };
   }
-  return { limit: 60, windowMs: 60_000 };
+  return { limit: 60, windowSec: 60 };
 }
 
 /** CORS allowlist + rate limiting for /api/* (no wildcard ACO). */
-export function handleApiRoute(request: NextRequest): NextResponse {
+export async function handleApiRoute(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const headers = new Headers();
   applyCorsHeaders(request, headers);
@@ -33,13 +39,15 @@ export function handleApiRoute(request: NextRequest): NextResponse {
     return new NextResponse(null, { status: 204, headers });
   }
 
-  const { limit, windowMs } = rateLimitForPath(pathname);
   const ip = clientIp(request);
-  const burst = checkRateLimit(`burst:${pathname}:${ip}`, 10, 10_000);
-  const rl = checkRateLimit(`api:${pathname}:${ip}`, limit, windowMs);
+  const burst = await enforceRateLimit(
+    `burst:${pathname}:${ip}`,
+    SITE_BURST_LIMIT,
+    SITE_BURST_WINDOW_SEC
+  );
 
   if (!burst.allowed) {
-    Object.entries(rateLimitHeaders(10, 0, burst.resetAt)).forEach(([k, v]) =>
+    Object.entries(rateLimitBlockedHeaders(burst.limit, burst.resetAt)).forEach(([k, v]) =>
       headers.set(k, v)
     );
     return NextResponse.json(
@@ -48,11 +56,15 @@ export function handleApiRoute(request: NextRequest): NextResponse {
     );
   }
 
-  Object.entries(rateLimitHeaders(limit, rl.remaining, rl.resetAt)).forEach(([k, v]) =>
-    headers.set(k, v)
-  );
+  const { limit, windowSec } = rateLimitForPath(pathname);
+  const rl = await enforceRateLimit(`api:${pathname}:${ip}`, limit, windowSec);
+
+  applyRateLimitHeaders(headers, rl, false);
 
   if (!rl.allowed) {
+    Object.entries(rateLimitBlockedHeaders(rl.limit, rl.resetAt)).forEach(([k, v]) =>
+      headers.set(k, v)
+    );
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
       { status: 429, headers }
@@ -61,8 +73,7 @@ export function handleApiRoute(request: NextRequest): NextResponse {
 
   const response = NextResponse.next({ request });
   applyCorsHeaders(request, response.headers);
-  Object.entries(rateLimitHeaders(limit, rl.remaining, rl.resetAt)).forEach(([k, v]) =>
-    response.headers.set(k, v)
-  );
+  applyRateLimitHeaders(response.headers, rl, false);
+  applyRateLimitHeaders(response.headers, burst, false);
   return response;
 }

@@ -4,14 +4,20 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleApiRoute } from "@/lib/security/apiMiddleware";
 import {
-  enforceSiteRateLimit,
   finalizePublicResponse,
+  getSiteRateLimit,
   publicNext,
+  siteRateLimitResponse,
 } from "@/lib/security/siteGuards";
+import type { RateLimitResult } from "@/lib/security/rateLimit";
 import type { AgentPreferences } from "@/types";
 
-function finish(request: NextRequest, response: NextResponse): NextResponse {
-  return finalizePublicResponse(request, response);
+function finish(
+  request: NextRequest,
+  response: NextResponse,
+  siteRl: RateLimitResult
+): NextResponse {
+  return finalizePublicResponse(request, response, siteRl);
 }
 
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password", "/reset-password", "/onboarding"];
@@ -46,8 +52,8 @@ function postAuthPath(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const rateLimited = enforceSiteRateLimit(request);
-  if (rateLimited) return rateLimited;
+  const siteRl = await getSiteRateLimit(request);
+  if (!siteRl.allowed) return siteRateLimitResponse(siteRl);
 
   if (pathname.startsWith("/api/")) {
     return handleApiRoute(request);
@@ -57,7 +63,7 @@ export async function middleware(request: NextRequest) {
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
-    return publicNext(request);
+    return publicNext(request, siteRl);
   }
 
   const isPublic =
@@ -67,7 +73,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
   if (isPublic && !isAuthRoute && pathname !== PENDING_ROUTE) {
-    return publicNext(request);
+    return publicNext(request, siteRl);
   }
 
   const { user, supabase, supabaseResponse } = await updateSession(request);
@@ -82,9 +88,9 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
-      return finish(request, NextResponse.redirect(url));
+      return finish(request, NextResponse.redirect(url), siteRl);
     }
-    return finish(request, supabaseResponse);
+    return finish(request, supabaseResponse, siteRl);
   }
 
   let profile: {
@@ -125,33 +131,33 @@ export async function middleware(request: NextRequest) {
     if (!isActive) {
       const url = request.nextUrl.clone();
       url.pathname = PENDING_ROUTE;
-      return finish(request, NextResponse.redirect(url));
+      return finish(request, NextResponse.redirect(url), siteRl);
     }
     if (onboardingDone) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
-      return finish(request, NextResponse.redirect(url));
+      return finish(request, NextResponse.redirect(url), siteRl);
     }
   }
 
   if (isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = destination;
-    return finish(request, NextResponse.redirect(url));
+    return finish(request, NextResponse.redirect(url), siteRl);
   }
 
   if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!isActive || !onboardingDone) {
       const url = request.nextUrl.clone();
       url.pathname = destination;
-      return finish(request, NextResponse.redirect(url));
+      return finish(request, NextResponse.redirect(url), siteRl);
     }
   }
 
   if (pathname.startsWith(ADMIN_PREFIX) && !isAdmin) {
     const url = request.nextUrl.clone();
     url.pathname = isActive ? "/dashboard" : PENDING_ROUTE;
-    return finish(request, NextResponse.redirect(url));
+    return finish(request, NextResponse.redirect(url), siteRl);
   }
 
   if (pathname === PENDING_ROUTE && isActive) {
@@ -161,18 +167,18 @@ export async function middleware(request: NextRequest) {
     } else {
       url.pathname = isAdmin ? "/admin" : "/dashboard";
     }
-    return finish(request, NextResponse.redirect(url));
+    return finish(request, NextResponse.redirect(url), siteRl);
   }
 
   if (pathname === PENDING_ROUTE && isPending) {
-    return finish(request, supabaseResponse);
+    return finish(request, supabaseResponse, siteRl);
   }
 
   if (pathname === PENDING_ROUTE && isRejected) {
-    return finish(request, supabaseResponse);
+    return finish(request, supabaseResponse, siteRl);
   }
 
-  return finish(request, supabaseResponse);
+  return finish(request, supabaseResponse, siteRl);
 }
 
 export const config = {
