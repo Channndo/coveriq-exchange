@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 import { LEAD_STATUSES, PRODUCT_TYPES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import type { Lead, LeadStatus } from "@/types";
@@ -16,16 +18,24 @@ interface LeadsTableProps {
   leads: Lead[];
 }
 
-export function LeadsTable({ leads }: LeadsTableProps) {
+export function LeadsTable({ leads: initialLeads }: LeadsTableProps) {
+  const router = useRouter();
+  const [rows, setRows] = useState(initialLeads);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("assigned_date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<Lead | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRows(initialLeads);
+  }, [initialLeads]);
 
   const filtered = useMemo(() => {
-    let result = [...leads];
+    let result = [...rows];
 
     if (search) {
       const q = search.toLowerCase();
@@ -53,7 +63,42 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     });
 
     return result;
-  }, [leads, search, statusFilter, productFilter, sortKey, sortDir]);
+  }, [rows, search, statusFilter, productFilter, sortKey, sortDir]);
+
+  async function updateStatus(lead: Lead, status: LeadStatus) {
+    const previous = rows;
+    setSaving(true);
+    setStatusError(null);
+    setRows((r) => r.map((l) => (l.id === lead.id ? { ...l, status } : l)));
+    setSelected((s) => (s?.id === lead.id ? { ...s, status } : s));
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not signed in.");
+
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(json.error || "Could not update status.");
+      router.refresh();
+    } catch (err) {
+      setRows(previous);
+      setSelected((s) => (s?.id === lead.id ? { ...lead, status: lead.status } : s));
+      setStatusError(err instanceof Error ? err.message : "Update failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -212,15 +257,15 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </div>
               )}
             </dl>
-            <div className="mt-6 flex gap-2">
+            {statusError && <p className="mt-4 text-sm text-red-300">{statusError}</p>}
+            <div className="mt-6 flex flex-wrap gap-2">
               {LEAD_STATUSES.filter((s) => s !== selected.status).map((s) => (
                 <Button
                   key={s}
                   variant="secondary"
                   size="sm"
-                  onClick={() =>
-                    setSelected({ ...selected, status: s as LeadStatus })
-                  }
+                  disabled={saving}
+                  onClick={() => void updateStatus(selected, s as LeadStatus)}
                 >
                   Mark {s}
                 </Button>

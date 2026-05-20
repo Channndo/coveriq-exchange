@@ -1,15 +1,15 @@
 import { GlassCard } from "@/components/ui/glass-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { LeadChart } from "@/components/dashboard/lead-chart";
-import { MOCK_STATS } from "@/lib/data/mock-leads";
+import { getDashboardStats } from "@/lib/data/dashboard";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = {
   title: "Dashboard",
 };
 
-export default function DashboardPage() {
-  const stats = MOCK_STATS;
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
 
   return (
     <div className="space-y-6">

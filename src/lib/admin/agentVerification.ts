@@ -54,7 +54,7 @@ export async function updateAgentAccountStatus(
 
   if (updateError) return { ok: false, error: updateError.message };
 
-  await supabase.from("admin_actions").insert({
+  const { error: auditError } = await supabase.from("admin_actions").insert({
     admin_user_id: adminUserId,
     target_agent_id: agent.id,
     action_type: `status_${newStatus}`,
@@ -62,6 +62,10 @@ export async function updateAgentAccountStatus(
     new_status: newStatus,
     metadata: { npn: agent.npn_number, email: agent.email },
   });
+
+  if (auditError) {
+    console.error("[admin] audit insert failed", auditError.message);
+  }
 
   if (newStatus === "active") {
     const prefs = agent.preferences as { carrier?: string; producerType?: string };
