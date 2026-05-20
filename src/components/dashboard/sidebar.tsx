@@ -12,6 +12,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Logo } from "@/components/ui/logo";
 import { NAV_ITEMS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,9 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
           );
         })}
       </nav>
+      <div className="border-t border-slate-700/40 p-3">
+        <SignOutButton className="w-full justify-start px-3" />
+      </div>
     </aside>
   );
 }

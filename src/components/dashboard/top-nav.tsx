@@ -1,6 +1,7 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { getDisplayName } from "@/lib/auth/profile";
 import type { AgentProfile } from "@/types";
 
@@ -35,6 +36,7 @@ export function TopNav({ profile, onMenuClick, title }: TopNavProps) {
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-cyan/20 text-sm font-semibold text-accent-bright">
           {displayName.charAt(0).toUpperCase()}
         </div>
+        <SignOutButton showLabel={false} />
       </div>
     </header>
   );

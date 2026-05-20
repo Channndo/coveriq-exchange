@@ -6,12 +6,26 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import {
-  fetchAgentsForReview,
-  updateAgentAccountStatus,
-  type AgentForReview,
-} from "@/lib/admin/agentVerification";
+import type { AgentForReview } from "@/lib/admin/agentVerification";
 import type { AccountStatus } from "@/types";
+
+async function adminFetch(path: string, init?: RequestInit) {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error("You must be signed in as admin.");
+
+  return fetch(path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
+  });
+}
 
 type Filter = "pending" | "all";
 
@@ -26,9 +40,10 @@ export function AgentVerificationTable() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const rows = await fetchAgentsForReview(supabase);
-      setAgents(rows);
+      const res = await adminFetch("/api/admin/agents");
+      const json = (await res.json()) as { agents?: AgentForReview[]; error?: string };
+      if (!res.ok) throw new Error(json.error || "Could not load agents.");
+      setAgents(json.agents ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load agents.");
     } finally {
@@ -44,17 +59,13 @@ export function AgentVerificationTable() {
     setActingId(agent.id);
     setError(null);
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError("You must be signed in as admin.");
-        return;
-      }
-      const result = await updateAgentAccountStatus(supabase, agent, status, user.id);
-      if (!result.ok) {
-        setError(result.error || "Update failed.");
+      const res = await adminFetch("/api/admin/agents", {
+        method: "PATCH",
+        body: JSON.stringify({ agentId: agent.id, status }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        setError(json.error || "Update failed.");
         return;
       }
       await load();

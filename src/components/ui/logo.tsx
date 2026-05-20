@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -8,16 +9,28 @@ interface LogoProps {
 }
 
 const sizes = {
-  sm: "text-lg",
-  md: "text-xl",
-  lg: "text-2xl",
+  sm: { text: "text-lg", mark: 28 },
+  md: { text: "text-xl", mark: 32 },
+  lg: { text: "text-2xl", mark: 40 },
 };
 
 export function Logo({ className, href = "/", size = "md" }: LogoProps) {
+  const { text, mark } = sizes[size];
+
   const content = (
-    <span className={cn("font-bold tracking-tight", sizes[size], className)}>
-      <span className="text-gradient">CoverIQ</span>
-      <span className="text-slate-300"> Exchange</span>
+    <span className={cn("inline-flex items-center gap-2 font-bold tracking-tight", className)}>
+      <Image
+        src="/coveriq-logo.svg"
+        alt=""
+        width={mark}
+        height={mark}
+        className="shrink-0"
+        aria-hidden
+      />
+      <span className={text}>
+        <span className="text-gradient">CoverIQ</span>
+        <span className="text-slate-300"> Exchange</span>
+      </span>
     </span>
   );
 
